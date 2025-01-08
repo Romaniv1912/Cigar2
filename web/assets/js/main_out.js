@@ -24,6 +24,7 @@
         MENU: modal('#menu'),
         ERROR: modal('#error'),
         SKINS: modal('#skins'),
+        QUIT: modal('#quit'),
     };
 
     class Sound {
@@ -713,8 +714,8 @@
     const pelletSound = new Sound('./assets/sound/pellet.mp3', 0.5, 10);
 
     const fetchSkins = (() => {
-        const gallery = byId('skins-gallery'),
-            loader = byId('skins-loader');
+        const gallery = document.querySelector('#skins-gallery'),
+            loader =document.querySelector('#skins-loader');
 
         const buildGallery = (skins) => {
             let gallery = '';
@@ -756,9 +757,44 @@
     modals.SKINS.element.addEventListener('show.bs.modal', fetchSkins);
     modals.SKINS.element.addEventListener('hide.bs.modal', showMainMenu);
 
-    function quitGame() {
+    const quitGame = (() => {
+        const el = modals.QUIT.element,
+            cancelBtn = el.querySelector('[data-toggle="dismiss"]'),
+            timeLabel = el.querySelector('[data-toggle="time"]');
+        let timeoutId = null;
 
-    }
+        const updateTime = (time) => {
+            timeLabel.innerHTML = time;
+        }
+
+        const stopTick = () => {
+            if (timeoutId === null) return;
+
+            clearInterval(timeoutId);
+            timeoutId = null;
+            modals.QUIT.hide();
+        };
+
+        const startTick = (secs, callback) => {
+            updateTime(secs);
+
+            if (secs-- < 1)
+                return callback();
+
+            timeoutId = setTimeout(() => startTick(secs, callback), 1000);
+        };
+
+        cancelBtn.addEventListener('click', stopTick);
+
+        return () => {
+            modals.QUIT.show();
+
+            startTick(5, () => {
+                modals.QUIT.hide();
+                showMainMenu();
+            });
+        }
+    })();
 
     function startGame() {
         const skin = settings.skin;
