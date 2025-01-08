@@ -1335,6 +1335,8 @@
             this.setColor(color);
             this.setName(name);
             this.setSkin(skin);
+            this.direction = {x: 0, y: 0}; // TODO: get direction from server response
+            this.isUser = this.name.length > 0; // TODO: get isUser from server response
             this.jagged = flags.jagged;
             this.ejected = flags.ejected;
             this.born = syncUpdStamp;
@@ -1466,7 +1468,46 @@
             ctx.save();
             this.drawShape(ctx);
             this.drawText(ctx);
+
+
+            if (this.isUser)
+                this.drawEyes(ctx);
             ctx.restore();
+        }
+        drawEyes(ctx, {shiftX=7, shiftY=4, size=3}={}) {
+
+
+            const drawCircle = (x, y, r, color) => {
+                ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+
+                ctx.fillStyle = color;
+                ctx.fill();
+            };
+
+            const sizeCoff = this.s / 12;
+
+            shiftX *= sizeCoff;
+
+            const eyeBackY = this.y - shiftY * sizeCoff,
+                eyeBackLeftX = this.x - shiftX,
+                eyeBackRightX = this.x + shiftX,
+                eyeBackSize = size * sizeCoff;
+
+            ctx.beginPath();
+            drawCircle(eyeBackLeftX, eyeBackY, eyeBackSize, '#ffffff');
+            drawCircle(eyeBackRightX, eyeBackY, eyeBackSize, '#ffffff');
+            ctx.closePath();
+
+            const frontSizeCoff = sizeCoff * 0.5;
+            const eyeFrontY = eyeBackY + this.direction.y,
+                eyeFrontLeftX = eyeBackLeftX + this.direction.x,
+                eyeFrontRightX = eyeBackRightX + this.direction.x,
+                eyeFrontSize = size * frontSizeCoff;
+
+            ctx.beginPath();
+            drawCircle(eyeFrontLeftX, eyeFrontY, eyeFrontSize, '#000000');
+            drawCircle(eyeFrontRightX, eyeFrontY, eyeFrontSize, '#000000');
+            ctx.closePath();
         }
         drawShape(ctx) {
             ctx.fillStyle = settings.showColor ? this.color.toHex() : '#FFFFFF';
