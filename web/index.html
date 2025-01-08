@@ -30,77 +30,181 @@
 </head>
 
 <body>
-    <div id="gallery" onclick="if (event.target == this) this.hide()" style="display: none;">
-        <div id="gallery-content">
-            <div id="gallery-header">Skins</div>
-            <div id="gallery-body"></div>
-        </div>
-    </div>
-    <div id="overlays" style="display: none;">
-        <div id="helloDialog">
-            <div class="form-group">
-                <h2 id="title">Cigar2</h2>
-            </div>
-
-            <div class="form-group">
-                <input id="nick" class="form-control" placeholder="Nickname" maxlength="15">
-                <input id="skin" class="form-control"  placeholder="Skin Name">
-                <select id="gamemode" class="form-control" onchange="setserver(this.value)" required>
-                    <option value="localhost:443" selected>Local 443</option>
-                    <option value="localhost:8080" selected>Local 8080</option>
-                </select>
-            </div>
-
-            <button id="play-btn" class="btn btn-play btn-primary btn-needs-server">Play</button>
-            <button id="spectate-btn" onclick="spectate()" class="btn btn-warning btn-spectate btn-needs-server glyphicon glyphicon-eye-open"></button>
-            <button id="gallery-btn" onclick="openSkinsList()" class="btn btn-play btn-primary btn-needs-server btn-info">Skins Gallery</button>
-
-            <div id="settings" class="checkbox">
-                <div style="margin: 6px;">
-                    <label><input id="showSkins" type="checkbox">Skins</label>
-                    <label><input id="showNames" type="checkbox">Names</label>
-                    <label><input id="darkTheme" type="checkbox">Dark</label>
-                    <label><input id="showColor" type="checkbox">Color</label>
-                    <label><input id="showMass" type="checkbox">Mass</label>
-                    <label><input id="showChat" type="checkbox">Chat</label>
-                    <label><input id="showMinimap" type="checkbox">Minimap</label>
-                    <label><input id="showPosition" type="checkbox">Position</label>
-                    <label><input id="showBorder" type="checkbox">Border</label>
-                    <label><input id="showGrid" type="checkbox">Grid</label>
-                    <label><input id="moreZoom" type="checkbox">Zoomout</label>
-                    <label><input id="fillSkin" type="checkbox">Fill Skin</label>
-                    <label><input id="backgroundSectors" type="checkbox">Background Sectors</label>
-                    <label><input id="jellyPhysics" type="checkbox">Jelly Physics</label>
-                    <label>
-                        <input id="playSounds" type="checkbox">Sounds
-                        <input id="soundsVolume" type="range" min="0" max="1" step="any">
-                    </label>
+    <div id="skins" class="modal fade" aria-hidden="true"
+         data-bs-target="#overlays"
+         data-bs-keyboard="false"
+         data-bs-toggle="modal">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header">
+                    <h4 class="modal-title">Skins</h4>
+                </div>
+                <div class="modal-body">
+                    <div id="gallery">bla </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div id="instructions">
-                <hr>
-                <center>
+    <div id="menu" class="modal fade"
+         data-bs-backdrop="static"
+         data-bs-keyboard="false"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-body">
+                    <h2 class="modal-title mb-3">Cigar2</h2>
+
+                    <div class="mb-3">
+                        <div class="mb-3">
+                            <input id="nick" class="form-control" placeholder="Nickname" maxlength="15">
+                            <input id="skin" class="form-control"  placeholder="Skin Name">
+                        </div>
+
+                        <select id="gamemode" class="form-control" onchange="setserver(this.value)" required>
+                            <option value="localhost:443" selected>Local 443</option>
+                            <option value="193.70.102.135:8080" selected>Server</option>
+                        </select>
+                    </div>
+
+                    <button id="play-btn" class="btn btn-play btn-primary">Play</button>
+                    <button id="spectate-btn" onclick="spectate()"
+                            class="btn btn-warning text-white">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-info w-100 text-white mb-3"
+                            data-bs-target="#gallery"
+                            data-bs-toggle="modal"
+                            data-bs-dismiss="modal">
+                        Skins Gallery
+                    </button>
+
+                    <div id="settings" class="mx-3">
+                        <div class="row">
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showNames" type="checkbox">
+                                    Names
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showSkins" type="checkbox">
+                                    Skins
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="darkTheme" type="checkbox">
+                                    Dark
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showColor" type="checkbox">
+                                    Color
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showMass" type="checkbox">
+                                    Mass
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showChat" type="checkbox">
+                                    Chat
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showMinimap" type="checkbox">
+                                    Minimap
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showPosition" type="checkbox">
+                                    Position
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showBorder" type="checkbox">
+                                    Border
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="showGrid" type="checkbox">
+                                    Grid
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="moreZoom" type="checkbox">
+                                    Zoomout
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="fillSkin" type="checkbox">
+                                    Fill Skin
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="backgroundSectors" type="checkbox">
+                                    Background Sectors
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input" id="jellyPhysics" type="checkbox">
+                                    Jelly Physics
+                                </label>
+                            </div>
+                            <div class="form-check col-auto">
+                                <label class="form-check-label">
+                                    <input class="form-check-input"  id="playSounds" type="checkbox">Sounds
+                                    <input id="soundsVolume" type="range" min="0" max="1" step="any">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="instructions">
+                        <hr>
+                        <center>
                     <span class="text-muted">
                         Move your mouse to control your cell<br>
                         Press <b>Space</b> to split<br>
                         Press <b>W</b> to eject some mass<br>
                     </span>
-                </center>
-            </div>
+                        </center>
+                    </div>
 
-            <hr>
-            <div id="footer">
-                <span class="text-muted">Have fun!</span>
+                    <hr>
+                    <div id="footer">
+                        <span class="text-muted">Have fun!</span>
+                    </div>
+                </div>
             </div>
-
         </div>
     </div>
 
-    <div id="connecting">
-        <div id="connecting-content">
-            <h2>Connecting</h2>
-            <p> If you cannot connect to the servers, check if you have some anti virus or firewall blocking the connection.</p>
+    <div id="error" class="modal fade"
+         data-bs-keyboard="false"
+         data-bs-backdrop="static"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-body">
+                    <h2 class="modal-title mb-3">Connecting</h2>
+                    <p> If you cannot connect to the servers, check if you have some anti virus or firewall blocking the connection.</p>
+                </div>
+            </div>
         </div>
     </div>
 
