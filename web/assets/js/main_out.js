@@ -12,7 +12,12 @@
     }
 
     function modal(selector) {
-        return new bootstrap.Modal(selector);
+        const el = document.querySelector(selector);
+        const modal = new bootstrap.Modal(el); // eslint-disable-line
+
+        modal.element = el;
+
+        return modal;
     }
 
     const modals = {
@@ -597,8 +602,36 @@
         maxScore: 0
     });
 
-    const knownSkins = new Map();
-    const loadedSkins = new Map();
+    const skinManager = new (function() {
+        const skinCache = new Map();
+        let skinsAvailable = [];
+
+        this.fetch = async function(){
+            const resp = await fetch('skinList.txt');
+            const data = await resp.text();
+
+            return skinsAvailable = data.split(',')
+                .filter(name => name.length);
+        };
+
+        this.getSkin = function (name) {
+            if (name === null || !skinsAvailable.includes(name))
+                return null;
+
+            if (skinCache.has(name)) return skinCache.get(name);
+
+
+            const skin = new Image();
+            skin.src = `${SKIN_URL}${name}.png`;
+
+            skinCache.set(name, skin);
+
+            return skin;
+        }
+
+        this.fetch();
+    })();
+
     const macroCooldown = 1000 / 7;
     const camera = {
         x: 0,
@@ -679,16 +712,49 @@
     const eatSound = new Sound('./assets/sound/eat.mp3', 0.5, 10);
     const pelletSound = new Sound('./assets/sound/pellet.mp3', 0.5, 10);
 
-    fetch('skinList.txt').then(resp => resp.text()).then(data => {
-        const skins = data.split(',').filter(name => name.length > 0);
-        if (skins.length === 0) return;
-        //byId('gallery-btn').style.display = 'inline-block';
-        const stamp = Date.now();
-        for (const skin of skins) knownSkins.set(skin, stamp);
-        for (const i of knownSkins.keys()) {
-            if (knownSkins.get(i) !== stamp) knownSkins.delete(i);
+    const fetchSkins = (() => {
+        const gallery = byId('skins-gallery'),
+            loader = byId('skins-loader');
+
+        const buildGallery = (skins) => {
+            let gallery = '';
+
+            for (const skin of skins) {
+                let img = `<img alt="Skin ${skin}" class="skin-image rounded-circle shadow-lg" src="./skins/${skin}.png">`,
+                    title = `<h4 class="skin-name text-center    ">${skin}</h4>`,
+                    body = `<div class="skin col-4" onclick="changeSkin('${skin}')">${img}${title}</div>`;
+
+                gallery += body;
+            }
+
+            return `<div class="row">${gallery}</div>`;
         }
-    });
+
+        const onStartLoading = () => {
+            gallery.hide();
+            gallery.innerHTML = '';
+            loader.show();
+        };
+
+        const onCompleteLoading = (skins) => {
+            loader.hide();
+            gallery.show();
+
+            if (!skins.length)
+                gallery.innerHTML = '<div class="text-secondary text-center">Skins not found</div>';
+            else
+                gallery.innerHTML = buildGallery(skins);
+        };
+
+        return () => {
+            onStartLoading();
+
+            skinManager.fetch().then(onCompleteLoading);
+        };
+    })();
+
+    modals.SKINS.element.addEventListener('show.bs.modal', fetchSkins);
+    modals.SKINS.element.addEventListener('hide.bs.modal', showMainMenu);
 
     function quitGame() {
 
@@ -765,17 +831,6 @@
         localStorage.setItem('settings', JSON.stringify(settings));
     }
 
-    function buildGallery() {
-        const sortedSkins = Array.from(knownSkins.keys()).sort();
-        let c = '';
-        for (const skin of sortedSkins) {
-            c += `<li class="skin" onclick="changeSkin('${skin}')">`;
-            c += `<img class="circular" src="./skins/${skin}.png">`;
-            c += `<h4 class="skinName">${skin}</h4>`;
-            c += '</li>';
-        }
-        byId('gallery-body').innerHTML = `<ul id="skinsUL">${c}</ul>`;
-    }
 
     function drawChat() {
         if (chat.messages.length === 0 && settings.showChat)
@@ -1362,12 +1417,7 @@
         }
         setSkin(value) {
             this.skin = (value && value[0] === '%' ? value.slice(1) : value) || this.skin;
-            if (this.skin === null || !knownSkins.has(this.skin) || loadedSkins.has(this.skin)) {
-                return;
-            }
-            const skin = new Image();
-            skin.src = `${SKIN_URL}${this.skin}.png`;
-            loadedSkins.set(this.skin, skin);
+            // TODO: set skin
         }
         setColor(value) {
             if (!value) {
@@ -1421,7 +1471,7 @@
                 ctx.globalAlpha = Math.min(Date.now() - this.born, 120) / 120;
             }
 
-            const skinImage = loadedSkins.get(this.skin);
+            const skinImage = skinManager.getSkin(this.skin);
             if (settings.showSkins && this.skin && skinImage &&
                 skinImage.complete && skinImage.width && skinImage.height) {
                 if (settings.fillSkin) ctx.fill();
@@ -1752,11 +1802,10 @@
     window.changeSkin = (a) => {
         byId('skin').value = a;
         settings.skin = a;
-        byId('gallery').hide();
+
+        modals.SKINS.hide();
+        showMainMenu();
     };
-    window.openSkinsList = () => {
-        if (byId('gallery-body').innerHTML === '') buildGallery();
-        byId('gallery').show(0.5);
-    };
+
     window.addEventListener('DOMContentLoaded', init);
 })();
