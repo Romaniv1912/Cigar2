@@ -1417,7 +1417,6 @@
         }
         setSkin(value) {
             this.skin = (value && value[0] === '%' ? value.slice(1) : value) || this.skin;
-            // TODO: set skin
         }
         setColor(value) {
             if (!value) {
