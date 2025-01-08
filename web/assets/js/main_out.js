@@ -10,11 +10,16 @@
     function byId(id) {
         return document.getElementById(id);
     }
-    /*
-    function byClass(clss, parent) {
-        return (parent || document).getElementsByClassName(clss);
+
+    function modal(selector) {
+        return new bootstrap.Modal(selector);
     }
-    */
+
+    const modals = {
+        MENU: modal('#menu'),
+        ERROR: modal('#error'),
+        SKINS: modal('#skins'),
+    };
 
     class Sound {
         constructor(src, volume, maximum) {
@@ -275,7 +280,7 @@
             Logger.debug('WebSocket init on existing connection');
             wsCleanup();
         }
-        byId('connecting').show(0.5);
+        // modals.ERROR.show();
         wsUrl = url;
         ws = new WebSocket(`ws${USE_HTTPS ? 's' : ''}://${url}`);
         ws.binaryType = 'arraybuffer';
@@ -287,7 +292,7 @@
 
     function wsOpen() {
         reconnectDelay = 1000;
-        byId('connecting').hide();
+        modals.ERROR.hide();
         wsSend(SEND_254);
         wsSend(SEND_255);
     }
@@ -620,6 +625,7 @@
     let mainCtx = null;
     let soundsVolume;
     let escOverlayShown = false;
+    let isPlaying = false;
     let isTyping = false;
     let chatBox = null;
     let mapCenterSet = false;
@@ -676,7 +682,7 @@
     fetch('skinList.txt').then(resp => resp.text()).then(data => {
         const skins = data.split(',').filter(name => name.length > 0);
         if (skins.length === 0) return;
-        byId('gallery-btn').style.display = 'inline-block';
+        //byId('gallery-btn').style.display = 'inline-block';
         const stamp = Date.now();
         for (const skin of skins) knownSkins.set(skin, stamp);
         for (const i of knownSkins.keys()) {
@@ -684,13 +690,23 @@
         }
     });
 
-    function hideESCOverlay() {
-        escOverlayShown = false;
-        byId('overlays').hide();
+    function quitGame() {
+
     }
-    function showESCOverlay() {
-        escOverlayShown = true;
-        byId('overlays').show(0.5);
+
+    function startGame() {
+        const skin = settings.skin;
+        sendPlay((skin ? `<${skin}>` : '') + settings.nick);
+        hideMainMenu();
+        isPlaying = true;
+    }
+
+    function showMainMenu() {
+        modals.MENU.show();
+    }
+
+    function hideMainMenu() {
+        modals.MENU.hide();
     }
 
     function toCamera(ctx) {
@@ -1236,7 +1252,7 @@
         }
         destroy(killerId) {
             cells.byId.delete(this.id);
-            if (cells.mine.remove(this.id) && cells.mine.length === 0) showESCOverlay();
+            if (cells.mine.remove(this.id) && cells.mine.length === 0) showMainMenu();
             this.destroyed = true;
             this.dead = syncUpdStamp;
             if (killerId && !this.diedBy) {
@@ -1600,8 +1616,8 @@
             } else {
                 chatBox.focus();
             }
-        } else if (key === 'escape') {
-            escOverlayShown ? hideESCOverlay() : showESCOverlay();
+        } else if (key === 'escape' && isPlaying) {
+            quitGame();
         } else {
             if (isTyping || escOverlayShown) return;
             let code = KEY_TO_OPCODE[key];
@@ -1641,11 +1657,7 @@
         loadSettings();
         window.addEventListener('beforeunload', storeSettings);
         document.addEventListener('wheel', handleScroll, {passive: true});
-        byId('play-btn').addEventListener('click', () => {
-            const skin = settings.skin;
-            sendPlay((skin ? `<${skin}>` : '') + settings.nick);
-            hideESCOverlay();
-        });
+        byId('play-btn').addEventListener('click', startGame);
         window.onkeydown = keydown;
         window.onkeyup = keyup;
         chatBox.onblur = () => {
@@ -1715,7 +1727,7 @@
         });
 
         gameReset();
-        showESCOverlay();
+        showMainMenu();
 
         const regex = /ip=([\w\W]+:[0-9]+)/;
         const args = window.location.search;
@@ -1735,7 +1747,7 @@
     window.spectate = (/* a */) => {
         wsSend(UINT8_CACHE[1]);
         stats.maxScore = 0;
-        hideESCOverlay();
+        hideMainMenu();
     };
     window.changeSkin = (a) => {
         byId('skin').value = a;
