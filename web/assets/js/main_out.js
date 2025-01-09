@@ -10,11 +10,22 @@
     function byId(id) {
         return document.getElementById(id);
     }
-    /*
-    function byClass(clss, parent) {
-        return (parent || document).getElementsByClassName(clss);
+
+    function modal(selector) {
+        const el = document.querySelector(selector);
+        const modal = new bootstrap.Modal(el); // eslint-disable-line
+
+        modal.element = el;
+
+        return modal;
     }
-    */
+
+    const modals = {
+        MENU: modal('#menu'),
+        ERROR: modal('#error'),
+        SKINS: modal('#skins'),
+        QUIT: modal('#quit'),
+    };
 
     class Sound {
         constructor(src, volume, maximum) {
@@ -275,7 +286,7 @@
             Logger.debug('WebSocket init on existing connection');
             wsCleanup();
         }
-        byId('connecting').show(0.5);
+        // modals.ERROR.show();
         wsUrl = url;
         ws = new WebSocket(`ws${USE_HTTPS ? 's' : ''}://${url}`);
         ws.binaryType = 'arraybuffer';
@@ -287,7 +298,7 @@
 
     function wsOpen() {
         reconnectDelay = 1000;
-        byId('connecting').hide();
+        modals.ERROR.hide();
         wsSend(SEND_254);
         wsSend(SEND_255);
     }
@@ -339,6 +350,14 @@
                     const x = reader.getInt32();
                     const y = reader.getInt32();
                     const s = reader.getUint16();
+                    const type = reader.getUint16();
+                    const dir = {
+                        x: reader.getInt32(),
+                        y: reader.getInt32()
+                    };
+
+                    if (type === 0)
+                    console.log(type, dir)
 
                     const flagMask = reader.getUint8();
                     const flags = {
@@ -363,11 +382,13 @@
                         cell.nx = x;
                         cell.ny = y;
                         cell.ns = s;
+                        cell.direction = dir;
+                        cell.type = type;
                         if (color) cell.setColor(color);
                         if (name) cell.setName(name);
                         if (skin) cell.setSkin(skin);
                     } else {
-                        const cell = new Cell(id, x, y, s, name, color, skin, flags);
+                        const cell = new Cell(id, x, y, s, name, color, skin, type, dir, flags);
                         cells.byId.set(id, cell);
                         cells.list.push(cell);
                     }
@@ -592,8 +613,54 @@
         maxScore: 0
     });
 
-    const knownSkins = new Map();
-    const loadedSkins = new Map();
+    class SpriteManager {
+        constructor({path='', available=[]}={}) {
+            this.cache = new Map();
+            this.available = available;
+            this.path = path;
+        }
+
+        get(name) {
+            if (name === null || !this.available.includes(name))
+                return null;
+
+            if (this.cache.has(name))
+                return this.cache.get(name);
+
+            const skin = new Image();
+            skin.src = `${this.path}${name}.png`;
+
+            this.cache.set(name, skin);
+
+            return skin;
+        }
+    }
+
+    const spriteManager = new SpriteManager({
+        path: "./assets/img/food/",
+        available: [10]
+    });
+    const skinManager = new (function() {
+        const manager = new SpriteManager({path: SKIN_URL});
+
+        this.fetch = async function(){
+            const resp = await fetch('skinList.txt');
+            const data = await resp.text();
+
+            return manager.available = data.split(',')
+                .filter(name => name.length);
+        };
+
+        this.get = function (name) {
+            return manager.get(name)
+        }
+
+        this.fetch();
+    })();
+
+    skinManager.prototype = SpriteManager;
+
+
     const macroCooldown = 1000 / 7;
     const camera = {
         x: 0,
@@ -620,6 +687,7 @@
     let mainCtx = null;
     let soundsVolume;
     let escOverlayShown = false;
+    let isPlaying = false;
     let isTyping = false;
     let chatBox = null;
     let mapCenterSet = false;
@@ -673,24 +741,102 @@
     const eatSound = new Sound('./assets/sound/eat.mp3', 0.5, 10);
     const pelletSound = new Sound('./assets/sound/pellet.mp3', 0.5, 10);
 
-    fetch('skinList.txt').then(resp => resp.text()).then(data => {
-        const skins = data.split(',').filter(name => name.length > 0);
-        if (skins.length === 0) return;
-        byId('gallery-btn').style.display = 'inline-block';
-        const stamp = Date.now();
-        for (const skin of skins) knownSkins.set(skin, stamp);
-        for (const i of knownSkins.keys()) {
-            if (knownSkins.get(i) !== stamp) knownSkins.delete(i);
-        }
-    });
+    const fetchSkins = (() => {
+        const gallery = document.querySelector('#skins-gallery'),
+            loader =document.querySelector('#skins-loader');
 
-    function hideESCOverlay() {
-        escOverlayShown = false;
-        byId('overlays').hide();
+        const buildGallery = (skins) => {
+            let gallery = '';
+
+            for (const skin of skins) {
+                let img = `<img alt="Skin ${skin}" class="skin-image rounded-circle shadow-lg" src="./skins/${skin}.png">`,
+                    title = `<h4 class="skin-name text-center    ">${skin}</h4>`,
+                    body = `<div class="skin col-4" onclick="changeSkin('${skin}')">${img}${title}</div>`;
+
+                gallery += body;
+            }
+
+            return `<div class="row">${gallery}</div>`;
+        }
+
+        const onStartLoading = () => {
+            gallery.hide();
+            gallery.innerHTML = '';
+            loader.show();
+        };
+
+        const onCompleteLoading = (skins) => {
+            loader.hide();
+            gallery.show();
+
+            if (!skins.length)
+                gallery.innerHTML = '<div class="text-secondary text-center">Skins not found</div>';
+            else
+                gallery.innerHTML = buildGallery(skins);
+        };
+
+        return () => {
+            onStartLoading();
+
+            skinManager.fetch().then(onCompleteLoading);
+        };
+    })();
+
+    modals.SKINS.element.addEventListener('show.bs.modal', fetchSkins);
+    modals.SKINS.element.addEventListener('hide.bs.modal', showMainMenu);
+
+    const quitGame = (() => {
+        const el = modals.QUIT.element,
+            cancelBtn = el.querySelector('[data-toggle="dismiss"]'),
+            timeLabel = el.querySelector('[data-toggle="time"]');
+        let timeoutId = null;
+
+        const updateTime = (time) => {
+            timeLabel.innerHTML = time;
+        }
+
+        const stopTick = () => {
+            if (timeoutId === null) return;
+
+            clearInterval(timeoutId);
+            timeoutId = null;
+            modals.QUIT.hide();
+        };
+
+        const startTick = (secs, callback) => {
+            updateTime(secs);
+
+            if (secs-- < 1)
+                return callback();
+
+            timeoutId = setTimeout(() => startTick(secs, callback), 1000);
+        };
+
+        cancelBtn.addEventListener('click', stopTick);
+
+        return () => {
+            modals.QUIT.show();
+
+            startTick(5, () => {
+                modals.QUIT.hide();
+                showMainMenu();
+            });
+        }
+    })();
+
+    function startGame() {
+        const skin = settings.skin;
+        sendPlay((skin ? `<${skin}>` : '') + settings.nick);
+        hideMainMenu();
+        isPlaying = true;
     }
-    function showESCOverlay() {
-        escOverlayShown = true;
-        byId('overlays').show(0.5);
+
+    function showMainMenu() {
+        modals.MENU.show();
+    }
+
+    function hideMainMenu() {
+        modals.MENU.hide();
     }
 
     function toCamera(ctx) {
@@ -749,17 +895,6 @@
         localStorage.setItem('settings', JSON.stringify(settings));
     }
 
-    function buildGallery() {
-        const sortedSkins = Array.from(knownSkins.keys()).sort();
-        let c = '';
-        for (const skin of sortedSkins) {
-            c += `<li class="skin" onclick="changeSkin('${skin}')">`;
-            c += `<img class="circular" src="./skins/${skin}.png">`;
-            c += `<h4 class="skinName">${skin}</h4>`;
-            c += '</li>';
-        }
-        byId('gallery-body').innerHTML = `<ul id="skinsUL">${c}</ul>`;
-    }
 
     function drawChat() {
         if (chat.messages.length === 0 && settings.showChat)
@@ -1208,7 +1343,7 @@
                 skin: (skin || '').trim() || name,
             };
         }
-        constructor(id, x, y, s, name, color, skin, flags) {
+        constructor(id, x, y, s, name, color, skin, type, dir, flags) {
             this.destroyed = false;
             this.diedBy = 0;
             this.nameSize = 0;
@@ -1228,15 +1363,18 @@
             this.setColor(color);
             this.setName(name);
             this.setSkin(skin);
+            this.direction = dir;
+            this.type = type;
             this.jagged = flags.jagged;
             this.ejected = flags.ejected;
             this.born = syncUpdStamp;
             this.points = [];
             this.pointsVel = [];
         }
+        get isUser() { return this.type === 0 }
         destroy(killerId) {
             cells.byId.delete(this.id);
-            if (cells.mine.remove(this.id) && cells.mine.length === 0) showESCOverlay();
+            if (cells.mine.remove(this.id) && cells.mine.length === 0) showMainMenu();
             this.destroyed = true;
             this.dead = syncUpdStamp;
             if (killerId && !this.diedBy) {
@@ -1346,12 +1484,6 @@
         }
         setSkin(value) {
             this.skin = (value && value[0] === '%' ? value.slice(1) : value) || this.skin;
-            if (this.skin === null || !knownSkins.has(this.skin) || loadedSkins.has(this.skin)) {
-                return;
-            }
-            const skin = new Image();
-            skin.src = `${SKIN_URL}${this.skin}.png`;
-            loadedSkins.set(this.skin, skin);
         }
         setColor(value) {
             if (!value) {
@@ -1363,9 +1495,59 @@
         }
         draw(ctx) {
             ctx.save();
+            if (this.type === 10)
+                return this.drawSprite(ctx);
+
             this.drawShape(ctx);
             this.drawText(ctx);
+
+            if (this.isUser)
+                this.drawEyes(ctx);
             ctx.restore();
+        }
+        drawEyes(ctx, {shiftX=7, shiftY=4, size=3}={}) {
+            const drawCircle = (x, y, r, color) => {
+                ctx.arc(x, y, r, 0, 2 * Math.PI, false);
+
+                ctx.fillStyle = color;
+                ctx.fill();
+            };
+
+            const sizeCoff = this.s / 12;
+
+            shiftX *= sizeCoff;
+
+            const eyeBackY = this.y - shiftY * sizeCoff,
+                eyeBackLeftX = this.x - shiftX,
+                eyeBackRightX = this.x + shiftX,
+                eyeBackSize = size * sizeCoff;
+
+            ctx.beginPath();
+            drawCircle(eyeBackLeftX, eyeBackY, eyeBackSize, '#ffffff');
+            drawCircle(eyeBackRightX, eyeBackY, eyeBackSize, '#ffffff');
+            ctx.closePath();
+
+            const frontSizeCoff = sizeCoff * 0.5,
+                movementCoff = sizeCoff * 0.08,
+                moveCoffX = this.direction.x * movementCoff;
+            const eyeFrontY = eyeBackY + this.direction.y * movementCoff,
+                eyeFrontLeftX = eyeBackLeftX + moveCoffX,
+                eyeFrontRightX = eyeBackRightX + moveCoffX,
+                eyeFrontSize = size * frontSizeCoff;
+
+            ctx.beginPath();
+            drawCircle(eyeFrontLeftX, eyeFrontY, eyeFrontSize, '#000000');
+            drawCircle(eyeFrontRightX, eyeFrontY, eyeFrontSize, '#000000');
+            ctx.closePath();
+        }
+        drawSprite(ctx) {
+            const sprite = spriteManager.get(this.type);
+
+            console.log(sprite)
+
+            ctx.beginPath();
+            ctx.drawImage(sprite, this.x - this.s * 2, this.y - this.s * 2, this.s * 4, this.s * 4);
+            ctx.closePath();
         }
         drawShape(ctx) {
             ctx.fillStyle = settings.showColor ? this.color.toHex() : '#FFFFFF';
@@ -1405,7 +1587,7 @@
                 ctx.globalAlpha = Math.min(Date.now() - this.born, 120) / 120;
             }
 
-            const skinImage = loadedSkins.get(this.skin);
+            const skinImage = skinManager.get(this.skin);
             if (settings.showSkins && this.skin && skinImage &&
                 skinImage.complete && skinImage.width && skinImage.height) {
                 if (settings.fillSkin) ctx.fill();
@@ -1600,8 +1782,8 @@
             } else {
                 chatBox.focus();
             }
-        } else if (key === 'escape') {
-            escOverlayShown ? hideESCOverlay() : showESCOverlay();
+        } else if (key === 'escape' && isPlaying) {
+            quitGame();
         } else {
             if (isTyping || escOverlayShown) return;
             let code = KEY_TO_OPCODE[key];
@@ -1641,11 +1823,7 @@
         loadSettings();
         window.addEventListener('beforeunload', storeSettings);
         document.addEventListener('wheel', handleScroll, {passive: true});
-        byId('play-btn').addEventListener('click', () => {
-            const skin = settings.skin;
-            sendPlay((skin ? `<${skin}>` : '') + settings.nick);
-            hideESCOverlay();
-        });
+        byId('play-btn').addEventListener('click', startGame);
         window.onkeydown = keydown;
         window.onkeyup = keyup;
         chatBox.onblur = () => {
@@ -1715,7 +1893,7 @@
         });
 
         gameReset();
-        showESCOverlay();
+        showMainMenu();
 
         const regex = /ip=([\w\W]+:[0-9]+)/;
         const args = window.location.search;
@@ -1735,16 +1913,16 @@
     window.spectate = (/* a */) => {
         wsSend(UINT8_CACHE[1]);
         stats.maxScore = 0;
-        hideESCOverlay();
+        isPlaying = true;
+        hideMainMenu();
     };
     window.changeSkin = (a) => {
         byId('skin').value = a;
         settings.skin = a;
-        byId('gallery').hide();
+
+        modals.SKINS.hide();
+        showMainMenu();
     };
-    window.openSkinsList = () => {
-        if (byId('gallery-body').innerHTML === '') buildGallery();
-        byId('gallery').show(0.5);
-    };
+
     window.addEventListener('DOMContentLoaded', init);
 })();
