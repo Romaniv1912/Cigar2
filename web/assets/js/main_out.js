@@ -350,6 +350,14 @@
                     const x = reader.getInt32();
                     const y = reader.getInt32();
                     const s = reader.getUint16();
+                    const type = reader.getUint16();
+                    const dir = {
+                        x: reader.getInt32(),
+                        y: reader.getInt32()
+                    };
+
+                    if (type === 0)
+                    console.log(type, dir)
 
                     const flagMask = reader.getUint8();
                     const flags = {
@@ -374,11 +382,13 @@
                         cell.nx = x;
                         cell.ny = y;
                         cell.ns = s;
+                        cell.direction = dir;
+                        cell.type = type;
                         if (color) cell.setColor(color);
                         if (name) cell.setName(name);
                         if (skin) cell.setSkin(skin);
                     } else {
-                        const cell = new Cell(id, x, y, s, name, color, skin, flags);
+                        const cell = new Cell(id, x, y, s, name, color, skin, type, dir, flags);
                         cells.byId.set(id, cell);
                         cells.list.push(cell);
                     }
@@ -1315,7 +1325,7 @@
                 skin: (skin || '').trim() || name,
             };
         }
-        constructor(id, x, y, s, name, color, skin, flags) {
+        constructor(id, x, y, s, name, color, skin, type, dir, flags) {
             this.destroyed = false;
             this.diedBy = 0;
             this.nameSize = 0;
@@ -1335,14 +1345,15 @@
             this.setColor(color);
             this.setName(name);
             this.setSkin(skin);
-            this.direction = {x: 0, y: 0}; // TODO: get direction from server response
-            this.isUser = this.name.length > 0; // TODO: get isUser from server response
+            this.direction = dir;
+            this.type = type;
             this.jagged = flags.jagged;
             this.ejected = flags.ejected;
             this.born = syncUpdStamp;
             this.points = [];
             this.pointsVel = [];
         }
+        get isUser() { return this.type === 0 }
         destroy(killerId) {
             cells.byId.delete(this.id);
             if (cells.mine.remove(this.id) && cells.mine.length === 0) showMainMenu();
@@ -1475,8 +1486,6 @@
             ctx.restore();
         }
         drawEyes(ctx, {shiftX=7, shiftY=4, size=3}={}) {
-
-
             const drawCircle = (x, y, r, color) => {
                 ctx.arc(x, y, r, 0, 2 * Math.PI, false);
 
@@ -1498,10 +1507,12 @@
             drawCircle(eyeBackRightX, eyeBackY, eyeBackSize, '#ffffff');
             ctx.closePath();
 
-            const frontSizeCoff = sizeCoff * 0.5;
-            const eyeFrontY = eyeBackY + this.direction.y,
-                eyeFrontLeftX = eyeBackLeftX + this.direction.x,
-                eyeFrontRightX = eyeBackRightX + this.direction.x,
+            const frontSizeCoff = sizeCoff * 0.5,
+                movementCoff = sizeCoff * 0.08,
+                moveCoffX = this.direction.x * movementCoff;
+            const eyeFrontY = eyeBackY + this.direction.y * movementCoff,
+                eyeFrontLeftX = eyeBackLeftX + moveCoffX,
+                eyeFrontRightX = eyeBackRightX + moveCoffX,
                 eyeFrontSize = size * frontSizeCoff;
 
             ctx.beginPath();
