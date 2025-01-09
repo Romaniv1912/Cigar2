@@ -356,9 +356,6 @@
                         y: reader.getInt32()
                     };
 
-                    if (type === 0)
-                    console.log(type, dir)
-
                     const flagMask = reader.getUint8();
                     const flags = {
                         updColor: !!(flagMask & 0x02),
@@ -785,7 +782,7 @@
     modals.SKINS.element.addEventListener('show.bs.modal', fetchSkins);
     modals.SKINS.element.addEventListener('hide.bs.modal', showMainMenu);
 
-    const quitGame = (() => {
+    const [quitGame, cancelQuitGame] = (() => {
         const el = modals.QUIT.element,
             cancelBtn = el.querySelector('[data-toggle="dismiss"]'),
             timeLabel = el.querySelector('[data-toggle="time"]');
@@ -814,14 +811,16 @@
 
         cancelBtn.addEventListener('click', stopTick);
 
-        return () => {
+        return [() => {
+            if (!isPlaying) return;
+
             modals.QUIT.show();
 
             startTick(5, () => {
                 modals.QUIT.hide();
                 showMainMenu();
             });
-        }
+        }, stopTick];
     })();
 
     function startGame() {
@@ -1250,8 +1249,8 @@
         if (leaderboard.visible) {
             mainCtx.drawImage(
                 leaderboard.canvas,
-                mainCanvas.width / camera.viewportScale - 10 - leaderboard.canvas.width,
-                10);
+                mainCanvas.width / camera.viewportScale - 8 - leaderboard.canvas.width,
+                90);
         }
         if (settings.showChat && (chat.visible || isTyping)) {
             mainCtx.globalAlpha = isTyping ? 1 : Math.max(1000 - syncAppStamp + chat.waitUntil, 0) / 1000;
@@ -1374,7 +1373,10 @@
         get isUser() { return this.type === 0 }
         destroy(killerId) {
             cells.byId.delete(this.id);
-            if (cells.mine.remove(this.id) && cells.mine.length === 0) showMainMenu();
+            if (cells.mine.remove(this.id) && cells.mine.length === 0) {
+                cancelQuitGame();
+                showMainMenu();
+            }
             this.destroyed = true;
             this.dead = syncUpdStamp;
             if (killerId && !this.diedBy) {
@@ -1542,8 +1544,6 @@
         }
         drawSprite(ctx) {
             const sprite = spriteManager.get(this.type);
-
-            console.log(sprite)
 
             ctx.beginPath();
             ctx.drawImage(sprite, this.x - this.s * 2, this.y - this.s * 2, this.s * 4, this.s * 4);
@@ -1782,7 +1782,7 @@
             } else {
                 chatBox.focus();
             }
-        } else if (key === 'escape' && isPlaying) {
+        } else if (key === 'escape') {
             quitGame();
         } else {
             if (isTyping || escOverlayShown) return;
@@ -1871,6 +1871,7 @@
             touchCircle.style.left = mouseX - r + 'px';
             touchCircle.style.top = mouseY - r + 'px';
         };
+        byId('quit-btn').addEventListener('click', quitGame)
         window.addEventListener('touchmove', touchmove);
         window.addEventListener('touchstart', (event) => {
             if (!touched) {

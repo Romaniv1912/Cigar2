@@ -66,7 +66,7 @@
                         <select id="gamemode" class="form-control" onchange="setserver(this.value)" required>
                             <option value="localhost:443" selected>Local 443</option>
                             <option value="193.70.102.135:8080" selected>Server</option>
-                            <option value="localhost:8090" selected>Local</option>
+                            <option value="localhost:8080" selected>Local</option>
                         </select>
                     </div>
 
@@ -231,6 +231,11 @@
         <div id="touchCircle" style="display: none;"></div>
         <img src="/assets/img/split.png" id="splitBtn">
         <img src="/assets/img/eject.png" id="ejectBtn">
+    </div>
+
+    <div class="my-3 mx-2 text-center" style="position: fixed; top: 0; right: 0;">
+        <button class="btn btn-outline-danger" style="width: 200px" id="quit-btn">QIUT GAME</button><br>
+        <small class="text-secondary">or press <code>ESC</code></small>
     </div>
 
     <canvas id="canvas" width="800" height="600"></canvas>
