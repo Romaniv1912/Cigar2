@@ -613,35 +613,53 @@
         maxScore: 0
     });
 
+    class SpriteManager {
+        constructor({path='', available=[]}={}) {
+            this.cache = new Map();
+            this.available = available;
+            this.path = path;
+        }
+
+        get(name) {
+            if (name === null || !this.available.includes(name))
+                return null;
+
+            if (this.cache.has(name))
+                return this.cache.get(name);
+
+            const skin = new Image();
+            skin.src = `${this.path}${name}.png`;
+
+            this.cache.set(name, skin);
+
+            return skin;
+        }
+    }
+
+    const spriteManager = new SpriteManager({
+        path: "./assets/img/food/",
+        available: [10]
+    });
     const skinManager = new (function() {
-        const skinCache = new Map();
-        let skinsAvailable = [];
+        const manager = new SpriteManager({path: SKIN_URL});
 
         this.fetch = async function(){
             const resp = await fetch('skinList.txt');
             const data = await resp.text();
 
-            return skinsAvailable = data.split(',')
+            return manager.available = data.split(',')
                 .filter(name => name.length);
         };
 
-        this.getSkin = function (name) {
-            if (name === null || !skinsAvailable.includes(name))
-                return null;
-
-            if (skinCache.has(name)) return skinCache.get(name);
-
-
-            const skin = new Image();
-            skin.src = `${SKIN_URL}${name}.png`;
-
-            skinCache.set(name, skin);
-
-            return skin;
+        this.get = function (name) {
+            return manager.get(name)
         }
 
         this.fetch();
     })();
+
+    skinManager.prototype = SpriteManager;
+
 
     const macroCooldown = 1000 / 7;
     const camera = {
@@ -1477,9 +1495,11 @@
         }
         draw(ctx) {
             ctx.save();
+            if (this.type === 10)
+                return this.drawSprite(ctx);
+
             this.drawShape(ctx);
             this.drawText(ctx);
-
 
             if (this.isUser)
                 this.drawEyes(ctx);
@@ -1520,6 +1540,15 @@
             drawCircle(eyeFrontRightX, eyeFrontY, eyeFrontSize, '#000000');
             ctx.closePath();
         }
+        drawSprite(ctx) {
+            const sprite = spriteManager.get(this.type);
+
+            console.log(sprite)
+
+            ctx.beginPath();
+            ctx.drawImage(sprite, this.x - this.s * 2, this.y - this.s * 2, this.s * 4, this.s * 4);
+            ctx.closePath();
+        }
         drawShape(ctx) {
             ctx.fillStyle = settings.showColor ? this.color.toHex() : '#FFFFFF';
             ctx.strokeStyle = settings.showColor ? this.sColor.toHex() : '#E5E5E5';
@@ -1558,7 +1587,7 @@
                 ctx.globalAlpha = Math.min(Date.now() - this.born, 120) / 120;
             }
 
-            const skinImage = skinManager.getSkin(this.skin);
+            const skinImage = skinManager.get(this.skin);
             if (settings.showSkins && this.skin && skinImage &&
                 skinImage.complete && skinImage.width && skinImage.height) {
                 if (settings.fillSkin) ctx.fill();
@@ -1884,6 +1913,7 @@
     window.spectate = (/* a */) => {
         wsSend(UINT8_CACHE[1]);
         stats.maxScore = 0;
+        isPlaying = true;
         hideMainMenu();
     };
     window.changeSkin = (a) => {
